@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# עדכון לגרסה האחרונה מ-GitHub:  bash /opt/osek/app/deploy/update.sh
+set -euo pipefail
+BASE=/opt/osek; APP=$BASE/app
+sudo -u osek git -C $APP pull --ff-only
+cd $APP && sudo -u osek env PATH=$BASE/node/bin:$PATH PUPPETEER_CACHE_DIR=$BASE/.cache/puppeteer npm ci --omit=dev --no-audit --no-fund
+systemctl restart osek && sleep 3 && curl -fsS http://127.0.0.1:3100/healthz && echo " ✓ עודכן"

@@ -1,0 +1,28 @@
+{
+  "name": "osek-control",
+  "version": "0.1.0",
+  "private": true,
+  "description": "מערכת שליטה לעוסק מורשה: חשבוניות ממייל → Drive לפי חודש → תור אישור → רו\"ח, מעקב בנק ONE + מקס + כאל, הכנסות קארדקום",
+  "type": "module",
+  "main": "src/server.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning src/server.js",
+    "google:auth": "node scripts/google-auth.js",
+    "onezero:login": "node scripts/onezero-login.js",
+    "gmail:once": "node scripts/run-once.js gmail",
+    "bank:once": "node scripts/run-once.js bank",
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "googleapis": "^144.0.0",
+    "israeli-bank-scrapers": "^6.9.0",
+    "multer": "^2.5.0",
+    "node-cron": "^3.0.3",
+    "pdf-parse": "^1.1.1"
+  }
+}
