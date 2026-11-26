@@ -41,6 +41,8 @@ else sudo -u osek git clone --depth 1 "$REPO" $APP; fi
 # 5. תלויות (כולל Chrome של puppeteer לתוך $PUPPETEER_CACHE_DIR)
 cd $APP
 sudo -u osek env PATH=$NODE/bin:$PATH PUPPETEER_CACHE_DIR=$PUPPETEER_CACHE_DIR npm ci --omit=dev --no-audit --no-fund
+# npm 11+ חוסם postinstall של puppeteer כברירת מחדל → מתקינים את Chrome במפורש
+sudo -u osek env PATH=$NODE/bin:$PATH PUPPETEER_CACHE_DIR=$PUPPETEER_CACHE_DIR $APP/node_modules/.bin/puppeteer browsers install chrome >/dev/null && echo "chrome ✓"
 
 # 6. קובץ סביבה — נוצר פעם אחת בלבד
 NEWPASS=""
