@@ -52,7 +52,9 @@ app.use((req, res, next) => {
 });
 app.use(express.urlencoded({ extended: true }));
 
-const back = (req, res) => res.redirect(req.get('referer') || '/');
+// חזרה לאותו מסך: כל טופס POST מקבל שדה back (ראה layout). Caddy שולח Referrer-Policy: no-referrer, אז referer לא אמין.
+const safeBack = (u) => (typeof u === 'string' && u.startsWith('/') && !u.startsWith('//') ? u : null);
+const back = (req, res) => res.redirect(safeBack(req.body?.back) || safeBack(req.query?.back) || req.get('referer') || '/');
 const ids = (v) => [].concat(v || []).map(Number).filter(Boolean);
 
 // ---------- סקירה ----------
@@ -69,7 +71,7 @@ app.get('/', (req, res) => {
   ].filter(Boolean);
   res.send(layout('סקירה', `
     ${missing.length ? `<div class="card warn" style="margin-bottom:12px">⚠ חסר להשלמת ההקמה: ${missing.join(' · ')} — <a href="/settings">להגדרות</a></div>` : ''}
-    <form method="get" style="margin-bottom:12px">חודש: <input type="month" name="month" value="${esc(month)}" onchange="this.form.submit()"></form>
+    <form method="get" style="margin-bottom:12px">חודש: <input type="month" name="month" value="${esc(month)}" onchange="this.form.requestSubmit()"></form>
     <div class="grid">
       ${card('הכנסות (קארדקום)', ils(s.income.s), `${s.income.n} מסמכים`)}
       ${card('הוצאות עם חשבונית', ils(s.expensesInvoiced.s), `${s.expensesInvoiced.n} חשבוניות`)}
@@ -101,10 +103,10 @@ app.get('/invoices', (req, res) => {
     const n = db.prepare(`SELECT COUNT(*) n FROM invoices WHERE ${w}`).get().n;
     return `<a href="?tab=${k}" class="${k === tab ? 'on' : ''}">${t} (${n})</a>`;
   }).join('');
-  const reclass = (r) => `<form class="inline" method="post" action="/invoices/${r.id}/reclassify"><select name="entity" onchange="this.form.submit()">
+  const reclass = (r) => `<form class="inline" method="post" action="/invoices/${r.id}/reclassify"><select name="entity" onchange="this.form.requestSubmit()">
       ${['osek', 'company', 'review'].map((e) => `<option value="${e}" ${e === r.entity ? 'selected' : ''}>${entityLabel(e)}</option>`).join('')}</select></form>`;
   const body = rows.map((r) => `<tr>
-      <td>${tab === 'pending' && r.status === 'pending' ? `<input type="checkbox" name="ids" value="${r.id}" form="bulk">` : ''}</td>
+      <td>${r.status !== 'sent' ? `<input type="checkbox" class="sel" name="ids" value="${r.id}" form="bulk">` : ''}</td>
       <td>${esc(r.doc_date || r.received_at.slice(0, 10))}<div class="mute">${esc(r.month)}</div></td>
       <td>${esc(r.supplier)}<div class="mute">${esc(r.subject || '')}</div></td>
       <td class="num">${ils(r.amount)}</td>
@@ -116,9 +118,25 @@ app.get('/invoices', (req, res) => {
         ${r.status !== 'sent' && r.status !== 'rejected' ? `<form class="inline" method="post" action="/invoices/${r.id}/reject"><button class="sec">דחה</button></form>` : ''}
       </td></tr>`).join('');
   res.send(layout('חשבוניות', `<div class="tabs">${tabs}</div><br>
-    ${tab === 'pending' ? `<form id="bulk" method="post" action="/invoices/approve"><button>אשר ושלח את המסומנות ל-${esc(config.accountant.email)}</button></form><br>` : ''}
-    <table><tr><th></th><th>תאריך</th><th>ספק</th><th>סכום</th><th>שיוך</th><th>סטטוס</th><th>קבצים</th><th>פעולות</th></tr>
-    ${body || '<tr><td colspan=8 class="mute">ריק</td></tr>'}</table>`, 'חשבוניות'));
+    <form id="bulk" method="post" action="/invoices/bulk" class="card" style="position:sticky;top:0;z-index:2;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <b id="selcount">0 מסומנות</b>
+      <button name="action" value="approve" onclick="return confirm('לשלוח את המסומנות (רק של העוסק) ל-${esc(config.accountant.email)}?')">אשר ושלח לרו״ח</button>
+      <button name="action" value="reject" class="sec">דחה</button>
+      ${tab === 'rejected' ? '<button name="action" value="restore" class="sec">בטל דחייה</button>' : ''}
+      <span class="mute">העבר ל:</span>
+      <button name="action" value="osek" class="sec">עוסק</button>
+      <button name="action" value="company" class="sec">ויביט בע״מ</button>
+      <button name="action" value="review" class="sec">לבדיקה</button>
+    </form><br>
+    <table><tr><th><input type="checkbox" id="selall" title="סמן הכל"></th><th>תאריך</th><th>ספק</th><th>סכום</th><th>שיוך</th><th>סטטוס</th><th>קבצים</th><th>פעולות</th></tr>
+    ${body || '<tr><td colspan=8 class="mute">ריק</td></tr>'}</table>
+    <script>
+      const boxes = () => [...document.querySelectorAll('input.sel')];
+      const upd = () => { document.getElementById('selcount').textContent = boxes().filter(b => b.checked).length + ' מסומנות'; };
+      document.getElementById('selall').addEventListener('change', (e) => { boxes().forEach(b => b.checked = e.target.checked); upd(); });
+      document.addEventListener('change', (e) => { if (e.target.classList?.contains('sel')) upd(); });
+      document.getElementById('bulk').addEventListener('submit', (e) => { if (!boxes().some(b => b.checked)) { e.preventDefault(); alert('לא סומנו חשבוניות'); } });
+    </script>`, 'חשבוניות'));
 });
 
 app.get('/invoices/:id/file', (req, res) => {
@@ -141,13 +159,42 @@ app.post('/invoices/:id/reject', (req, res) => {
   back(req, res);
 });
 
-app.post('/invoices/:id/reclassify', async (req, res) => {
-  const r = db.prepare('SELECT * FROM invoices WHERE id=?').get(req.params.id);
-  const entity = req.body.entity;
-  if (!r || !['osek', 'company', 'review'].includes(entity) || r.status === 'sent') return back(req, res);
-  await moveInDrive(r.drive_file_id, entity, r.month);
+async function reclassify(id, entity) {
+  const r = db.prepare('SELECT * FROM invoices WHERE id=?').get(id);
+  if (!r || !['osek', 'company', 'review'].includes(entity) || r.status === 'sent' || r.entity === entity) return false;
+  if (r.drive_file_id) await moveInDrive(r.drive_file_id, entity, r.month);
   const status = entity === 'osek' ? 'pending' : 'stored';
   db.prepare("UPDATE invoices SET entity=?, status=?, entity_reason='סיווג ידני' WHERE id=?").run(entity, status, r.id);
+  return true;
+}
+
+app.post('/invoices/:id/reclassify', async (req, res) => {
+  await reclassify(Number(req.params.id), req.body.entity);
+  back(req, res);
+});
+
+app.post('/invoices/bulk', async (req, res) => {
+  const list = ids(req.body.ids);
+  const action = req.body.action;
+  const errors = [];
+  if (action === 'approve') {
+    const osekIds = list.filter((id) => db.prepare("SELECT 1 FROM invoices WHERE id=? AND entity='osek' AND status IN ('pending','approved')").get(id));
+    approve(osekIds);
+    for (const id of osekIds) { try { await sendInvoice(id); } catch (e) { errors.push(`#${id}: ${e.message}`); } }
+    if (osekIds.length < list.length) errors.push(`${list.length - osekIds.length} לא נשלחו כי אינן של העוסק או כבר טופלו`);
+  } else if (action === 'reject') {
+    const st = db.prepare("UPDATE invoices SET status='rejected' WHERE id=? AND status!='sent'");
+    list.forEach((id) => st.run(id));
+  } else if (action === 'restore') {
+    const st = db.prepare("UPDATE invoices SET status=CASE WHEN entity='osek' THEN 'pending' ELSE 'stored' END WHERE id=? AND status='rejected'");
+    list.forEach((id) => st.run(id));
+  } else if (['osek', 'company', 'review'].includes(action)) {
+    for (const id of list) { try { await reclassify(id, action); } catch (e) { errors.push(`#${id}: ${e.message}`); } }
+  }
+  if (errors.length) {
+    const to = safeBack(req.body.back) || '/invoices';
+    return res.send(layout('תוצאה', `<div class="card"><p>${errors.map(esc).join('<br>')}</p><a class="btn" href="${esc(to)}">חזרה</a></div>`));
+  }
   back(req, res);
 });
 
@@ -159,7 +206,7 @@ app.get('/transactions', (req, res) => {
     FROM transactions t JOIN accounts a ON a.id=t.account_id LEFT JOIN invoices i ON i.id=t.invoice_id
     WHERE substr(t.date,1,7)=? ${missing ? "AND t.amount<0 AND t.invoice_id IS NULL AND t.needs_invoice=1 AND t.scope!='private'" : ''}
     ORDER BY t.date DESC`).all(month);
-  const scopeSel = (t) => `<select name="scope" onchange="this.form.submit()">${[['unknown', '?'], ['business', 'עסקי'], ['private', 'פרטי']]
+  const scopeSel = (t) => `<select name="scope" onchange="this.form.requestSubmit()">${[['unknown', '?'], ['business', 'עסקי'], ['private', 'פרטי']]
     .map(([v, l]) => `<option value="${v}" ${t.scope === v ? 'selected' : ''}>${l}</option>`).join('')}</select>`;
   res.send(layout('בנק ואשראי', `
     <form method="get">חודש: <input type="month" name="month" value="${esc(month)}"> <label><input type="checkbox" name="missing" value="1" ${missing ? 'checked' : ''}> רק חסרות חשבונית</label> <button class="sec">הצג</button></form><br>

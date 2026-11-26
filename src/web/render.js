@@ -28,5 +28,12 @@ button.sec{background:#e2e8f0;color:var(--ink)}button.bad{background:var(--bad)}
 .pill{font-size:12px;padding:2px 8px;border-radius:99px;background:#e2e8f0}.pill.osek{background:#ccfbf1}.pill.company{background:#e0e7ff}.pill.review{background:#fef3c7}
 .mute{color:var(--mute);font-size:13px}form.inline{display:inline}select,input{font:inherit;padding:4px 6px}
 .num{direction:ltr;text-align:left;white-space:nowrap}.neg{color:var(--bad)}.pos{color:var(--acc)}
-</style></head><body><header><b>עוסק מורשה</b>${nav}</header><main>${body}</main></body></html>`;
+</style></head><body><script>
+// כל טופס POST חוזר לאותו מסך אחרי הפעולה
+document.addEventListener('submit', (e) => {
+  const f = e.target;
+  if ((f.method || '').toLowerCase() !== 'post' || f.querySelector('input[name=back]')) return;
+  const i = document.createElement('input'); i.type = 'hidden'; i.name = 'back'; i.value = location.pathname + location.search; f.appendChild(i);
+}, true);
+</script><header><b>עוסק מורשה</b>${nav}</header><main>${body}</main></body></html>`;
 }
