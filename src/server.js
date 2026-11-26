@@ -94,7 +94,8 @@ app.get('/', (req, res) => {
 
 // ---------- חשבוניות ----------
 const TABS = { pending: ['ממתין לאישור', "entity='osek' AND status IN ('pending','approved')"], sent: ['נשלח', "status='sent'"],
-  review: ['לבדיקה', "entity='review'"], company: ['ויביט בע״מ', "entity='company'"], rejected: ['נדחה', "status='rejected'"], all: ['הכל', '1=1'] };
+  review: ['לבדיקה', "entity='review' AND status!='rejected'"], company: ['ויביט בע״מ', "entity='company' AND status!='rejected'"],
+  all: ['הכל', "status!='rejected'"], rejected: ['נדחה', "status='rejected'"] }; // נדחות מופיעות רק בלשונית "נדחה" 
 
 app.get('/invoices', (req, res) => {
   const tab = TABS[req.query.tab] ? req.query.tab : 'pending';
