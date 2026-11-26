@@ -38,7 +38,7 @@
 # DNS: רשומת A לדומיין → IP השרת. ואז, כ-root:
 curl -fsSL https://raw.githubusercontent.com/avileon/osek-control/main/deploy/provision.sh | DOMAIN=osek.atar.co bash
 ```
-הסקריפט: משתמש מערכת `osek`, Node 24 פרטי ב-`/opt/osek/node` (לא נוגע באפליקציות אחרות), systemd `osek.service` על 127.0.0.1:3100, בלוק Caddy עם HTTPS. בסוף מודפסת סיסמת הדשבורד **פעם אחת**.
+הסקריפט: משתמש מערכת `osek`, Node 24 פרטי ב-`/opt/osek/node` (לא נוגע באפליקציות אחרות), systemd `osek.service` על 127.0.0.1:3110, בלוק Caddy עם HTTPS. בסוף מודפסת סיסמת הדשבורד **פעם אחת**.
 
 עדכון: `bash /opt/osek/app/deploy/update.sh`
 

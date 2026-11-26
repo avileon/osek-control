@@ -5,11 +5,17 @@
 set -euo pipefail
 DOMAIN="${DOMAIN:-osek.atar.co}"
 REPO="${REPO:-https://github.com/avileon/osek-control}"
-PORT="${PORT:-3100}"
+PORT="${PORT:-3110}"
 BASE=/opt/osek; APP=$BASE/app; NODE=$BASE/node; DATA=/var/lib/osek; ENVF=/etc/osek/osek.env
 export PUPPETEER_CACHE_DIR=$BASE/.cache/puppeteer
 
 [ "$(id -u)" = 0 ] || { echo "להריץ כ-root"; exit 1; }
+# אם כבר מותקן — הפורט נלקח מקובץ הסביבה הקיים
+[ -f $ENVF ] && PORT=$(grep -E '^PORT=' $ENVF | cut -d= -f2)
+# הפורט חייב להיות פנוי (או תפוס ע"י osek עצמו)
+if ss -ltnp | grep -E "[:.]$PORT " | grep -vq '"node"'; then
+  echo "✗ פורט $PORT תפוס ע\"י תהליך אחר:"; ss -ltnp | grep -E "[:.]$PORT "; echo "הרץ שוב עם PORT=<פורט פנוי>"; exit 1
+fi
 echo "== osek-control → $DOMAIN (port $PORT)"
 
 # 1. משתמש מערכת ייעודי
@@ -118,7 +124,8 @@ fi
 
 # 9. בדיקה
 sleep 4
-curl -fsS http://127.0.0.1:$PORT/healthz >/dev/null && echo "✓ osek-control רץ" || { echo "✗ לא עולה:"; journalctl -u osek -n 30 --no-pager; exit 1; }
+if [ "$(curl -fsS http://127.0.0.1:$PORT/healthz 2>/dev/null)" = "ok" ] && systemctl is-active -q osek; then echo "✓ osek-control רץ על $PORT"
+else echo "✗ לא עולה:"; journalctl -u osek -n 30 --no-pager; exit 1; fi
 echo
 echo "==================================================="
 echo " כתובת:  https://$DOMAIN"
